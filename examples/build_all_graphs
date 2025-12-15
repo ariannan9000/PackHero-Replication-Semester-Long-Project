@@ -1,0 +1,16 @@
+import os
+from graph_constructor import PackHeroGraphConstructor
+import torch
+
+input_dir = "callgraphs_json"
+output_dir = "processed_graphs"
+os.makedirs(output_dir, exist_ok=True)
+
+constructor = PackHeroGraphConstructor()
+
+for file in os.listdir(input_dir):
+    if not file.endswith(".json"):
+        continue
+    pyg = constructor.process(os.path.join(input_dir, file))
+    torch.save(pyg, os.path.join(output_dir, file.replace(".json", ".pt")))
+    print(f"[+] Saved {file}")
