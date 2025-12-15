@@ -1,0 +1,88 @@
+import json
+import networkx as nx
+from torch_geometric.data import HeteroData
+import torch
+
+class PackHeroGraphConstructor:
+
+    def __init__(self):
+        pass
+
+    def load_callgraph(self, path):
+        """Load raw call graph extracted by radare2/angr."""
+        with open(path, "r") as f:
+            data = json.load(f)
+        return data
+
+    def build_networkx_graph(self, cg):
+        """
+        Convert the raw call graph JSON to a heterogeneous NetworkX graph.
+        cg is expected to contain:
+            functions: list of dicts with metadata
+            edges: list of (caller, callee)
+        """
+        G = nx.DiGraph()
+
+        for f in cg["functions"]:
+            G.add_node(
+                f["name"],
+                node_type="function",
+                size=f.get("size", 0),
+                blocks=f.get("blocks", 0),
+                instructions=f.get("instructions", 0),
+                outgoing_calls=len(f.get("calls", [])),
+                is_entry=f.get("is_entry", False),
+            )
+
+        for src, dst in cg["edges"]:
+            if G.has_node(src) and G.has_node(dst):
+                G.add_edge(src, dst, edge_type="call")
+
+        return G
+
+    def to_pyg(self, G):
+        """Convert the NetworkX graph into a PyTorch Geometric HeteroData object."""
+        pyg_graph = HeteroData()
+
+        # Map node indices
+        mapping = {node: i for i, node in enumerate(G.nodes())}
+
+        # Add node features
+        sizes = []
+        blocks = []
+        instr = []
+        calls = []
+        entry = []
+
+        for node, attrs in G.nodes(data=True):
+            sizes.append(attrs["size"])
+            blocks.append(attrs["blocks"])
+            instr.append(attrs["instructions"])
+            calls.append(attrs["outgoing_calls"])
+            entry.append(int(attrs["is_entry"]))
+
+        pyg_graph["function"].x = torch.tensor(
+            list(zip(sizes, blocks, instr, calls, entry)), dtype=torch.float
+        )
+
+        # Edges
+        edges_src = []
+        edges_dst = []
+
+        for u, v, attrs in G.edges(data=True):
+            if attrs["edge_type"] == "call":
+                edges_src.append(mapping[u])
+                edges_dst.append(mapping[v])
+
+        pyg_graph["function", "calls", "function"].edge_index = torch.tensor(
+            [edges_src, edges_dst], dtype=torch.long
+        )
+
+        return pyg_graph
+
+    def process(self, filepath):
+        """Full pipeline: load → convert NX → convert PyG."""
+        cg = self.load_callgraph(filepath)
+        G = self.build_networkx_graph(cg)
+        pyg = self.to_pyg(G)
+        return pyg
