@@ -1,0 +1,22 @@
+# PackHero GNN Requirements
+# Install with: pip install -r gnn/requirements.txt
+
+# Core ML
+torch>=2.0.0
+numpy>=1.21.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+
+# PyTorch Geometric (install after PyTorch)
+# See: https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html
+torch-geometric>=2.3.0
+
+# Visualization
+matplotlib>=3.5.0
+networkx>=2.6.0
+
+# Optional: For GPU acceleration (uncomment based on your CUDA version)
+# torch-scatter
+# torch-sparse
+# torch-cluster
+# torch-spline-conv
